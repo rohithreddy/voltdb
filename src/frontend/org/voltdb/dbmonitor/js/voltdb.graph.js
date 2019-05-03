@@ -1452,11 +1452,11 @@
         }
 
         this.UpdateCharts = function () {
-            if (ramChart.is(":visible"))
-                ChartRam.update();
-
             if (cpuChart.is(":visible"))
                 ChartCpu.update();
+
+            if (ramChart.is(":visible"))
+                ChartRam.update();
 
             if (latencyChart.is(":visible"))
                 ChartLatency.update();

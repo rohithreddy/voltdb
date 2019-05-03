@@ -407,6 +407,14 @@ function alertNodeClicked(obj) {
             });
         };
 
+        this.getExporterGraphInformation = function (onInformationLoaded) {
+            var exporterDetails = {};
+            VoltDBService.GetExporterInformation(function (connection) {
+                getExporterDetails(connection, exporterDetails);
+                onInformationLoaded(exporterDetails);
+            });
+        };
+
         //Check if DR is enable or not
         this.GetDrStatusInformation = function (onInformationLoaded) {
             var drStatus = {};
@@ -803,11 +811,7 @@ function alertNodeClicked(obj) {
                     adminConfigValues['authkey'] = data['snmp'].authkey;
                     adminConfigValues['privacyprotocol'] = data['snmp'].privacyprotocol;
                     adminConfigValues['privacykey'] = data['snmp'].privacykey;
-
-
                 }
-
-
             }
             return adminConfigValues;
         };
@@ -1364,6 +1368,56 @@ function alertNodeClicked(obj) {
             });
         };
 
+        var getExporterDetails = function (connection, exporterDetails) {
+            var colIndex = {};
+            var counter = 0;
+
+            if (connection.Metadata['@Statistics_EXPORTER'] == null) {
+                return;
+            }
+
+            // see the columns ...
+            connection.Metadata['@Statistics_EXPORTER'].schema.forEach(function (columnInfo) {
+                if (columnInfo["name"] == "TIMESTAMP" || columnInfo["name"] == "HOSTNAME"
+                    || columnInfo["name"] == "SUCCESSES" || columnInfo["name"] == "FAILURES"
+                    || columnInfo["name"] == "OUTSTANDING_REQUESTS" || columnInfo["name"] == "EXPORTER_NAME")
+                    colIndex[columnInfo["name"]] = counter;
+                counter++;
+            });
+
+            if(connection.Metadata["@Statistics_EXPORTER"].data.length > 0){
+                var rowCount = connection.Metadata["@Statistics_EXPORTER"].data.length
+                var success = 0;
+                var failures = 0;
+                //var outStanding = 0;
+                var exporterName = ""
+                connection.Metadata["@Statistics_EXPORTER"].data.forEach(function (info) {
+                    if(exporterName != info[colIndex["EXPORTER_NAME"]]){
+                        exporterName = info[colIndex["EXPORTER_NAME"]];
+                        success = 0;
+                        failures = 0;
+                        outStanding = 0;
+                    }
+                    if (!exporterDetails.hasOwnProperty("SUCCESSES")) {
+                        exporterDetails["SUCCESSES"] = {};
+                        exporterDetails["FAILURES"]= {};
+                        exporterDetails["OUTSTANDING_REQUESTS"]= {};
+                    }
+                    //outStanding += info[colIndex["OUTSTANDING_REQUESTS"]];
+                    success += info[colIndex["SUCCESSES"]];
+                    failures += info[colIndex["FAILURES"]];
+
+                    exporterDetails["SUCCESSES"][exporterName] = success;
+                    exporterDetails["SUCCESSES"]["TIMESTAMP"] = info[colIndex["TIMESTAMP"]];
+                    exporterDetails["FAILURES"][importerName] = failures;
+                    exporterDetails["FAILURES"]["TIMESTAMP"] = info[colIndex["TIMESTAMP"]];
+                    //exporterDetails["OUTSTANDING_REQUESTS"][importerName] = outStanding;
+                    exporterDetails["HOSTNAME"] = info[colIndex["HOSTNAME"]];
+                    //exporterDetails["OUTSTANDING_REQUESTS"]["TIMESTAMP"] = info[colIndex["TIMESTAMP"]];
+                });
+            }
+        }
+
         var getImporterDetails = function (connection, importerDetails) {
             var colIndex = {};
             var counter = 0;
@@ -1537,7 +1591,6 @@ function alertNodeClicked(obj) {
                 counter++;
             });
 
-
             connection.Metadata['@SystemInformation_Overview' + suffix].data.forEach(function (info) {
                 if (info[colIndex["KEY"]] == "HOSTNAME") {
                     hostName = info[colIndex["VALUE"]];
@@ -1624,7 +1677,7 @@ function alertNodeClicked(obj) {
             replicationDetails["DR_GRAPH"]['WARNING_COUNT'] = getReplicationNotCovered(connection.Metadata['@Statistics_DRCONSUMER_completeData'][1], colIndex2['IS_COVERED']);
         };
 
-        var getDrConsumerData = function(connection, drConsumerDetails) {
+        var getDrConsumerData = function (connection, drConsumerDetails) {
             var colIndex = {};
             var counter = 0;
             if (connection.Metadata['@Statistics_DRCONSUMER'] == null) {
@@ -2507,8 +2560,6 @@ function alertNodeClicked(obj) {
                 onInformationLoaded(tableDetails);
             });
         };
-
-
 
         this.GetImportRequestInformation = function (onInformationLoaded, tableDetails) {
             VoltDBService.GetImportRequestInformation(function (connection) {
